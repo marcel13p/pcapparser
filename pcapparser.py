@@ -39,6 +39,9 @@ class EcatDatagram:
             return None
         return self.address & 0xFFFF
     
+    def _get_data(self):
+        return self.raw_datagram[ECAT_DATAGRAM_HEADER_LENGTH:ECAT_DATAGRAM_HEADER_LENGTH + self.length]
+    
     cmd = property(_get_cmd)
     idx = property(_get_idx)
     address = property(_get_address)
@@ -46,6 +49,7 @@ class EcatDatagram:
     log_addr = property(_get_logaddr)
     ado = property(_get_ado)
     adp = property(_get_adp)
+    data = property(_get_data)
 
     def __str__(self):
         return f"EcatDatagram(cmd: {self.cmd}, idx: {self.idx}, address: {self.address:08x}, length: {self.length}, raw_datagram: {' '.join([f'{b:02x}' for b in self.raw_datagram])}, wkc: {self.wkc})"
@@ -65,7 +69,6 @@ class Packet:
         ethertype = struct.unpack(">H", self.raw_data[12:14])[0]
         return ethertype if ethertype >= 0x600 else None # NOTE: Ethertype is only defined for Ethernet II and should be >= 0x600
         
-        
     def _get_datagrams(self) -> list[EcatDatagram]:
         pointer = ENET_HEADER_LENGTH + ECAT_HEADER_LENGTH
         length = self.packet_length
@@ -77,7 +80,7 @@ class Packet:
         return datagrams
     
     ethertype = property(_get_ethertype)
-    datagrams = property(_get_datagrams)
+    datagrams: list[EcatDatagram] = property(_get_datagrams)
         
     def __str__(self):
         return f"Packet(packet_number: {self.packet_number}, packet_length: {self.packet_length}, timestamp: {self.timestamp}, raw_data: {' '.join([f'{b:02x}' for b in self.raw_data])})"
@@ -98,7 +101,7 @@ class PcapParser:
                 return None
             block_type, block_length = struct.unpack("<II", block_header)
             
-            # Enhanced packet block, used to store packets                
+            # Enhanced packet block, used to store packets
             if block_type == 0x6:
                 self.file.seek(4, 1)  # Skip Interface ID
                 timestamp_high = self.file.read(4)
